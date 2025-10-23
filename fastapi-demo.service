@@ -1,0 +1,15 @@
+[Unit]
+Description=FastAPI Demo Application
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/fastapi-demo-system
+Environment=PATH=/home/ec2-user/.local/bin:/usr/local/bin:/usr/bin
+Environment=NEW_RELIC_CONFIG_FILE=/home/ec2-user/fastapi-demo-system/newrelic.ini
+ExecStart=/home/ec2-user/.local/bin/newrelic-admin run-program /usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 3000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

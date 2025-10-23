@@ -1,0 +1,6 @@
+logs:
+  - name: fastapi-demo-logs
+    systemd: fastapi-demo
+    attributes:
+      logtype: fastapi-application
+      service: FastAPI-ECSite

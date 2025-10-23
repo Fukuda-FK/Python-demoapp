@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <script type="text/javascript">
+;window.NREUM||(NREUM={});NREUM.init={session_replay:{enabled:true,block_selector:"",mask_text_selector:"*",sampling_rate:100.0,error_sampling_rate:100.0,mask_all_inputs:true,collect_fonts:true,inline_images:false,inline_stylesheet:true,fix_stylesheets:true,preload:false,mask_input_options:{}},distributed_tracing:{enabled:true},performance:{capture_measures:true},privacy:{cookies_enabled:true},ajax:{deny_list:["bam.nr-data.net"]}};
+;NREUM.loader_config={accountID:"3688120",trustKey:"3420523",agentID:"1103447806",licenseKey:"NRJS-dfb894caf5e1edd9871",applicationID:"1103447806"};
+;NREUM.info={beacon:"bam.nr-data.net",errorBeacon:"bam.nr-data.net",licenseKey:"NRJS-dfb894caf5e1edd9871",applicationID:"1103447806",sa:1};
+    </script>
+    <script src="https://js-agent.newrelic.com/nr-loader-spa-1.298.0.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オンラインストア - FastAPI デモ</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #555; font-weight: 600; font-size: 14px; }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus { outline: none; border-color: #667eea; }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4); }
+        .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 8px; font-size: 14px; display: none; }
+        .result.success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; display: block; }
+        .result.error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; display: block; }
+        .result.processing { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; display: block; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; }
+        .tab { padding: 10px 20px; background: none; border: none; cursor: pointer; font-size: 16px; color: #666; }
+        .tab.active { color: #667eea; border-bottom: 3px solid #667eea; font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .products { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .product { border: 2px solid #e0e0e0; border-radius: 8px; padding: 15px; text-align: center; }
+        .product .price { color: #667eea; font-size: 18px; font-weight: 600; margin: 10px 0; }
+        .product button { width: 100%; padding: 8px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .cart-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #e0e0e0; }
+        .loading { display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 オンラインストア</h1>
+        <p class="subtitle">FastAPI ワークロード デモ</p>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('shop')">商品一覧</button>
+            <button class="tab" onclick="showTab('cart')">カート</button>
+            <button class="tab" onclick="showTab('db')">💾 DB管理</button>
+            <button class="tab" onclick="showTab('admin')">🔧 管理画面</button>
+        </div>
+        
+        <div id="shop" class="tab-content active">
+            <h2>商品一覧</h2>
+            <div class="products" id="productList"></div>
+        </div>
+        
+        <div id="cart" class="tab-content">
+            <h2>ショッピングカート</h2>
+            <div id="cartItems"></div>
+            <div style="text-align: right; padding: 15px 0; font-size: 20px;">
+                <strong>合計: ¥<span id="cartTotal">0</span></strong>
+            </div>
+            <button onclick="checkout()" class="btn">レジに進む</button>
+        </div>
+        
+        <div id="db" class="tab-content">
+            <h2>💾 データベース管理</h2>
+            <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3>🔍 RDS接続テスト</h3>
+                <button onclick="testRDSConnection()" class="btn" style="margin-top: 10px;">接続テスト実行</button>
+                <div id="rdsTestResult" style="margin-top: 15px;"></div>
+            </div>
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3>📊 トランザクション履歴</h3>
+                <button onclick="loadTransactions()" class="btn" style="margin-top: 10px;">履歴を読み込む</button>
+                <div id="transactionList" style="margin-top: 15px; max-height: 300px; overflow-y: auto;"></div>
+            </div>
+            <div style="background: #fff3cd; padding: 20px; border-radius: 8px;">
+                <h3>🗑️ データ管理</h3>
+                <button onclick="clearTransactions()" class="btn" style="margin-top: 10px; background: #dc3545;">全トランザクション削除</button>
+                <div id="clearResult" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+        
+        <div id="admin" class="tab-content">
+            <h2>🔧 システム管理画面</h2>
+            <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3>📚 New Relicデモシナリオ</h3>
+                <p style="font-size: 13px; color: #856404; margin: 10px 0;">障害発生時の原因特定を迅速化</p>
+                <div style="display: grid; gap: 8px; margin-top: 15px;">
+                    <button onclick="enableCodeError()" class="btn" style="background: #e74c3c; font-size: 14px;">🐛 シナリオ1: コードエラー</button>
+                    <button onclick="enableDBError()" class="btn" style="background: #9b59b6; font-size: 14px;">💾 シナリオ2: DBエラー</button>
+                    <button onclick="enableResourceError()" class="btn" style="background: #f39c12; font-size: 14px;">📊 シナリオ3: リソース不足</button>
+                    <button onclick="disableAllErrors()" class="btn" style="background: #27ae60; font-size: 14px;">✅ 全て正常化</button>
+                </div>
+            </div>
+            <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3>🔍 New Relicで確認できること</h3>
+                <div style="font-size: 13px; line-height: 1.8;">
+                    <p><strong>シナリオ1:</strong> APMでスタックトレースを確認、コードの何行目でエラーか即座に判明</p>
+                    <p><strong>シナリオ2:</strong> DBクエリのパフォーマンスを確認、SQLエラーをLogs in Contextで紐付け</p>
+                    <p><strong>シナリオ3:</strong> InfrastructureでCPU/メモリ使用率を確認、リソース問題を特定</p>
+                    <p style="margin-top: 10px; color: #0277bd;"><strong>→ APM + Logs + Infrastructureを統合して原因を迅速に特定！</strong></p>
+                </div>
+            </div>
+            <button onclick="getSystemStatus()" class="btn">状態を確認</button>
+            <div id="systemStatus" style="margin-top: 15px;"></div>
+        </div>
+        
+        <div id="checkout-form" class="tab-content">
+            <h2>決済情報入力</h2>
+            <button onclick="showTab('cart')" class="btn" style="background: #ccc; margin-bottom: 15px;">← カートに戻る</button>
+            <form id="paymentForm">
+                <div class="form-group">
+                    <label>決済金額（円）</label>
+                    <input type="number" id="amount" readonly>
+                </div>
+                <div class="form-group">
+                    <label>カード番号</label>
+                    <input type="text" id="cardNumber" placeholder="1234-5678-9012-3456" maxlength="19">
+                </div>
+                <div class="form-group">
+                    <label>店舗ID</label>
+                    <select id="storeId">
+                        <option value="STORE001">店舗A（東京）</option>
+                        <option value="STORE002">店舗B（大阪）</option>
+                        <option value="STORE003">店舗C（名古屋）</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">決済を実行</button>
+            </form>
+            <div id="result" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        let cart = [];
+        const products = [
+            { id: 1, name: 'ノートパソコン', price: 89800, image: '💻' },
+            { id: 2, name: 'ワイヤレスマウス', price: 2980, image: '🖱️' },
+            { id: 3, name: 'キーボード', price: 5980, image: '⌨️' },
+            { id: 4, name: 'モニター', price: 29800, image: '🖥️' }
+        ];
+        
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            if (tabName === 'cart') updateCart();
+        }
+        
+        function renderProducts() {
+            document.getElementById('productList').innerHTML = products.map(p => `
+                <div class="product">
+                    <div style="font-size: 60px;">${p.image}</div>
+                    <h3>${p.name}</h3>
+                    <div class="price">¥${p.price.toLocaleString()}</div>
+                    <button onclick="addToCart(${p.id})">カートに追加</button>
+                </div>
+            `).join('');
+        }
+        
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            const existing = cart.find(item => item.id === productId);
+            if (existing) {
+                existing.quantity++;
+            } else {
+                cart.push({ ...product, quantity: 1 });
+            }
+            alert(`${product.name}をカートに追加しました`);
+        }
+        
+        function updateCart() {
+            const cartItems = document.getElementById('cartItems');
+            const cartTotal = document.getElementById('cartTotal');
+            
+            if (cart.length === 0) {
+                cartItems.innerHTML = '<p style="text-align: center; color: #666;">カートは空です</p>';
+                cartTotal.textContent = '0';
+                return;
+            }
+            
+            cartItems.innerHTML = cart.map((item, index) => `
+                <div class="cart-item">
+                    <div><strong>${item.name}</strong><br>¥${item.price.toLocaleString()} × ${item.quantity}</div>
+                    <button onclick="removeFromCart(${index})" style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">削除</button>
+                </div>
+            `).join('');
+            
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            cartTotal.textContent = total.toLocaleString();
+        }
+        
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCart();
+        }
+        
+        function checkout() {
+            if (cart.length === 0) {
+                alert('カートが空です');
+                return;
+            }
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            document.getElementById('amount').value = total;
+            document.getElementById('checkout-form').classList.add('active');
+            document.getElementById('cart').classList.remove('active');
+        }
+        
+        async function enableCodeError() {
+            const response = await fetch('/admin/code-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable: true })
+            });
+            const data = await response.json();
+            alert(`🐛 ${data.message}\n\n次の決済でZeroDivisionErrorが発生します。\nNew Relic APMでスタックトレースを確認してください。`);
+            getSystemStatus();
+        }
+        
+        async function enableDBError() {
+            const response = await fetch('/admin/db-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable: true })
+            });
+            const data = await response.json();
+            alert(`💾 ${data.message}\n\n次の決済でDBエラーが発生します。\nNew RelicでDBクエリとログを確認してください。`);
+            getSystemStatus();
+        }
+        
+        async function enableResourceError() {
+            const response = await fetch('/admin/resource-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable: true })
+            });
+            const data = await response.json();
+            alert(`📊 ${data.message}\n\n次の決済でメモリ使用量が増加します。\nNew Relic Infrastructureでリソース使用率を確認してください。`);
+            getSystemStatus();
+        }
+        
+        async function disableAllErrors() {
+            await fetch('/admin/code-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable: false })
+            });
+            await fetch('/admin/db-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable: false })
+            });
+            await fetch('/admin/resource-error', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enable: false })
+            });
+            alert('✅ 全てのエラーモードが無効化されました');
+            getSystemStatus();
+        }
+        
+        async function getSystemStatus() {
+            const statusDiv = document.getElementById('systemStatus');
+            statusDiv.innerHTML = '<div class="loading"></div>確認中...';
+            
+            const response = await fetch('/admin/status');
+            const data = await response.json();
+            
+            const codeErrorStatus = data.codeErrorMode ? '🔴 ON' : '🟢 OFF';
+            const dbErrorStatus = data.dbErrorMode ? '🔴 ON' : '🟢 OFF';
+            const resourceErrorStatus = data.resourceErrorMode ? '🔴 ON' : '🟢 OFF';
+            const dbStatus = data.database === 'connected' ? '🟢 接続中' : '🔴 切断';
+            
+            statusDiv.innerHTML = `
+                <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                    <div><strong>シナリオ1 (コードエラー):</strong> ${codeErrorStatus}</div>
+                    <div><strong>シナリオ2 (DBエラー):</strong> ${dbErrorStatus}</div>
+                    <div><strong>シナリオ3 (リソース不足):</strong> ${resourceErrorStatus}</div>
+                    <div style="border-top: 1px solid #eee; margin-top: 10px; padding-top: 10px;">
+                        <div><strong>データベース:</strong> ${dbStatus}</div>
+                        <div><strong>取引数:</strong> ${data.transactionCount}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result processing';
+            resultDiv.innerHTML = '<div class="loading"></div>決済処理中...';
+            
+            const formData = {
+                amount: parseFloat(document.getElementById('amount').value),
+                cardNumber: document.getElementById('cardNumber').value,
+                storeId: document.getElementById('storeId').value
+            };
+            
+            try {
+                const response = await fetch('/api/payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>決済成功！</strong><div>取引ID: ${data.transactionId}</div>`;
+                    cart = [];
+                    setTimeout(() => {
+                        document.getElementById('checkout-form').classList.remove('active');
+                        document.getElementById('shop').classList.add('active');
+                    }, 2000);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>エラー</strong><div>${data.detail.message || data.detail.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>ネットワークエラー</strong><div>${error.message}</div>`;
+            }
+        });
+        
+        async function testRDSConnection() {
+            const resultDiv = document.getElementById('rdsTestResult');
+            resultDiv.innerHTML = '<div class="result processing"><div class="loading"></div>RDS接続テスト中...</div>';
+            
+            try {
+                const response = await fetch('/api/db-test');
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'connected') {
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            <strong>✅ RDS接続成功</strong>
+                            <div style="margin-top: 10px; font-size: 13px;">
+                                <div><strong>ホスト:</strong> ${data.connectionInfo.host}</div>
+                                <div><strong>データベース:</strong> ${data.connectionInfo.database}</div>
+                                <div><strong>ユーザー:</strong> ${data.connectionInfo.user}</div>
+                                <div><strong>総トランザクション数:</strong> ${data.totalTransactions}</div>
+                                <div><strong>DBバージョン:</strong> ${data.dbVersion.substring(0, 50)}...</div>
+                                <div><strong>DB時刻:</strong> ${new Date(data.currentTime).toLocaleString('ja-JP')}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="result error"><strong>❌ 接続エラー</strong><div>${data.error || '不明なエラー'}</div></div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error"><strong>❌ 接続失敗</strong><div>${error.message}</div></div>`;
+            }
+        }
+        
+        async function loadTransactions() {
+            const listDiv = document.getElementById('transactionList');
+            listDiv.innerHTML = '<div class="result processing"><div class="loading"></div>読み込み中...</div>';
+            
+            try {
+                const response = await fetch('/api/transactions');
+                const data = await response.json();
+                
+                if (data.transactions && data.transactions.length > 0) {
+                    listDiv.innerHTML = `
+                        <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                            <div style="font-weight: bold; margin-bottom: 10px;">総件数: ${data.transactions.length}件</div>
+                            ${data.transactions.map(t => `
+                                <div style="border-bottom: 1px solid #eee; padding: 10px 0; font-size: 13px;">
+                                    <div><strong>ID:</strong> ${t.transaction_id}</div>
+                                    <div><strong>金額:</strong> ¥${parseFloat(t.amount).toLocaleString()}</div>
+                                    <div><strong>店舗:</strong> ${t.store_id}</div>
+                                    <div><strong>カード:</strong> ${t.card_number}</div>
+                                    <div><strong>日時:</strong> ${new Date(t.created_at).toLocaleString('ja-JP')}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    listDiv.innerHTML = '<div class="result">トランザクションがありません</div>';
+                }
+            } catch (error) {
+                listDiv.innerHTML = `<div class="result error"><strong>エラー</strong><div>${error.message}</div></div>`;
+            }
+        }
+        
+        async function clearTransactions() {
+            if (!confirm('本当に全てのトランザクションを削除しますか？')) return;
+            
+            const resultDiv = document.getElementById('clearResult');
+            resultDiv.innerHTML = '<div class="result processing"><div class="loading"></div>削除中...</div>';
+            
+            try {
+                const response = await fetch('/api/transactions/clear', { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="result success"><strong>✅ 削除完了</strong><div>${data.deleted}件のトランザクションを削除しました</div></div>`;
+                    loadTransactions();
+                } else {
+                    resultDiv.innerHTML = `<div class="result error"><strong>❌ 削除失敗</strong><div>${data.error}</div></div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="result error"><strong>❌ エラー</strong><div>${error.message}</div></div>`;
+            }
+        }
+        
+        renderProducts();
+    </script>
+</body>
+</html>
