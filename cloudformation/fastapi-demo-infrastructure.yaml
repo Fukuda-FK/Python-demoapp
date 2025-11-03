@@ -29,14 +29,14 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: FastAPIDemoVPC
+          Value: NRDemoFastAPIDemoVPC
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: FastAPIDemoIGW
+          Value: NRDemoFastAPIDemoIGW
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -53,7 +53,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: PublicSubnet1
+          Value: NRDemoPublicSubnet1
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -64,7 +64,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: PublicSubnet2
+          Value: NRDemoPublicSubnet2
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -74,7 +74,7 @@ Resources:
       AvailabilityZone: !Select [0, !GetAZs '']
       Tags:
         - Key: Name
-          Value: PrivateSubnet1
+          Value: NRDemoPrivateSubnet1
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -84,7 +84,7 @@ Resources:
       AvailabilityZone: !Select [1, !GetAZs '']
       Tags:
         - Key: Name
-          Value: PrivateSubnet2
+          Value: NRDemoPrivateSubnet2
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -92,7 +92,7 @@ Resources:
       VpcId: !Ref DemoVPC
       Tags:
         - Key: Name
-          Value: PublicRouteTable
+          Value: NRDemoPublicRouteTable
 
   PublicRoute:
     Type: AWS::EC2::Route
@@ -126,7 +126,7 @@ Resources:
           CidrIp: !Ref AllowedIPAddress
       Tags:
         - Key: Name
-          Value: ALBSecurityGroup
+          Value: NRDemoALBSecurityGroup
 
   WebServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -148,7 +148,7 @@ Resources:
           CidrIp: !Ref AllowedIPAddress
       Tags:
         - Key: Name
-          Value: WebServerSecurityGroup
+          Value: NRDemoWebServerSecurityGroup
 
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -162,7 +162,7 @@ Resources:
           SourceSecurityGroupId: !Ref WebServerSecurityGroup
       Tags:
         - Key: Name
-          Value: DBSecurityGroup
+          Value: NRDemoDBSecurityGroup
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -173,7 +173,7 @@ Resources:
         - !Ref PrivateSubnet2
       Tags:
         - Key: Name
-          Value: DemoDBSubnetGroup
+          Value: NRDemoDemoDBSubnetGroup
 
   DBParameterGroup:
     Type: AWS::RDS::DBParameterGroup
@@ -186,7 +186,7 @@ Resources:
   PaymentDatabase:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: fastapi-demo-db
+      DBInstanceIdentifier: nrdemo-fastapi-demo-db
       Engine: postgres
       EngineVersion: '15.8'
       DBInstanceClass: db.t3.micro
@@ -202,12 +202,12 @@ Resources:
       BackupRetentionPeriod: 0
       Tags:
         - Key: Name
-          Value: FastAPIDemoDB
+          Value: NRDemoFastAPIDemoDB
 
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: fastapi-demo-alb
+      Name: nrdemo-fastapi-demo-alb
       Subnets:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2
@@ -215,12 +215,12 @@ Resources:
         - !Ref ALBSecurityGroup
       Tags:
         - Key: Name
-          Value: FastAPIDemoALB
+          Value: NRDemoFastAPIDemoALB
 
   ALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: fastapi-demo-tg
+      Name: nrdemo-fastapi-demo-tg
       Port: 3000
       Protocol: HTTP
       VpcId: !Ref DemoVPC
@@ -317,7 +317,7 @@ Resources:
           cat > /home/ec2-user/Python-demoapp/config/newrelic.ini << EOF
           [newrelic]
           license_key = ${NewRelicLicenseKey}
-          app_name = FastAPI Demo Service
+          app_name = NRDemo FastAPI Demo Service
           monitor_mode = true
           log_level = info
           distributed_tracing.enabled = true
@@ -353,7 +353,7 @@ Resources:
           echo "User data script completed at $(date)"
       Tags:
         - Key: Name
-          Value: FastAPIDemoServer
+          Value: NRDemoFastAPIDemoServer
         - Key: Version
           Value: "1.0"
 
