@@ -29,14 +29,14 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: NRDemoFastAPIDemoVPC
+          Value: FastAPIDemoVPC
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: NRDemoFastAPIDemoIGW
+          Value: FastAPIDemoIGW
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -53,7 +53,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: NRDemoPublicSubnet1
+          Value: PublicSubnet1
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -64,7 +64,7 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: NRDemoPublicSubnet2
+          Value: PublicSubnet2
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -74,7 +74,7 @@ Resources:
       AvailabilityZone: !Select [0, !GetAZs '']
       Tags:
         - Key: Name
-          Value: NRDemoPrivateSubnet1
+          Value: PrivateSubnet1
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
@@ -84,7 +84,7 @@ Resources:
       AvailabilityZone: !Select [1, !GetAZs '']
       Tags:
         - Key: Name
-          Value: NRDemoPrivateSubnet2
+          Value: PrivateSubnet2
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -92,7 +92,7 @@ Resources:
       VpcId: !Ref DemoVPC
       Tags:
         - Key: Name
-          Value: NRDemoPublicRouteTable
+          Value: PublicRouteTable
 
   PublicRoute:
     Type: AWS::EC2::Route
@@ -126,7 +126,7 @@ Resources:
           CidrIp: !Ref AllowedIPAddress
       Tags:
         - Key: Name
-          Value: NRDemoALBSecurityGroup
+          Value: ALBSecurityGroup
 
   WebServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -148,7 +148,7 @@ Resources:
           CidrIp: !Ref AllowedIPAddress
       Tags:
         - Key: Name
-          Value: NRDemoWebServerSecurityGroup
+          Value: WebServerSecurityGroup
 
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -162,7 +162,7 @@ Resources:
           SourceSecurityGroupId: !Ref WebServerSecurityGroup
       Tags:
         - Key: Name
-          Value: NRDemoDBSecurityGroup
+          Value: DBSecurityGroup
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -173,7 +173,7 @@ Resources:
         - !Ref PrivateSubnet2
       Tags:
         - Key: Name
-          Value: NRDemoDemoDBSubnetGroup
+          Value: DemoDBSubnetGroup
 
   DBParameterGroup:
     Type: AWS::RDS::DBParameterGroup
@@ -202,12 +202,12 @@ Resources:
       BackupRetentionPeriod: 0
       Tags:
         - Key: Name
-          Value: NRDemoFastAPIDemoDB
+          Value: FastAPIDemoDB
 
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: nrdemo-fastapi-demo-alb
+      Name: fastapi-demo-alb
       Subnets:
         - !Ref PublicSubnet1
         - !Ref PublicSubnet2
@@ -215,12 +215,12 @@ Resources:
         - !Ref ALBSecurityGroup
       Tags:
         - Key: Name
-          Value: NRDemoFastAPIDemoALB
+          Value: FastAPIDemoALB
 
   ALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: nrdemo-fastapi-demo-tg
+      Name: fastapi-demo-tg
       Port: 3000
       Protocol: HTTP
       VpcId: !Ref DemoVPC
@@ -317,7 +317,7 @@ Resources:
           cat > /home/ec2-user/Python-demoapp/config/newrelic.ini << EOF
           [newrelic]
           license_key = ${NewRelicLicenseKey}
-          app_name = NRDemo FastAPI Demo Service
+          app_name = FastAPI Demo Service
           monitor_mode = true
           log_level = info
           distributed_tracing.enabled = true
@@ -353,7 +353,7 @@ Resources:
           echo "User data script completed at $(date)"
       Tags:
         - Key: Name
-          Value: NRDemoFastAPIDemoServer
+          Value: FastAPIDemoServer
         - Key: Version
           Value: "1.0"
 
