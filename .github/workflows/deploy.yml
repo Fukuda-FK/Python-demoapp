@@ -75,7 +75,7 @@ jobs:
       
       - name: Display Deployment Information
         run: |
-          echo "🚀 Deployment completed successfully!"
-          echo "🐳 Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
-          echo "📊 ECS Cluster: ${{ env.ECS_CLUSTER }}"
-          echo "🔧 ECS Service: ${{ env.ECS_SERVICE }}"
+          echo "Deployment completed successfully!"
+          echo "Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          echo "ECS Cluster: ${{ env.ECS_CLUSTER }}"
+          echo "ECS Service: ${{ env.ECS_SERVICE }}"
