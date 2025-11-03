@@ -116,8 +116,6 @@ Resources:
       SubnetId: !Ref PublicSubnet2
       RouteTableId: !Ref PublicRouteTable
 
-
-
   # ============================================
   # Security Groups
   # ============================================
@@ -357,20 +355,11 @@ Resources:
           PortMappings:
             - ContainerPort: 3000
               Protocol: tcp
-          Secrets:
-            - Name: NEW_RELIC_LICENSE_KEY
-              ValueFrom: !Sub "${NewRelicLicenseKeySecret}:NEW_RELIC_LICENSE_KEY::"
-            - Name: DB_HOST
-              ValueFrom: !Sub "${DBCredentialsSecret}:DB_HOST::"
-            - Name: DB_PORT
-              ValueFrom: !Sub "${DBCredentialsSecret}:DB_PORT::"
-            - Name: DB_USER
-              ValueFrom: !Sub "${DBCredentialsSecret}:DB_USER::"
-            - Name: DB_PASSWORD
-              ValueFrom: !Sub "${DBCredentialsSecret}:DB_PASSWORD::"
-            - Name: DB_NAME
-              ValueFrom: !Sub "${DBCredentialsSecret}:DB_NAME::"
           Environment:
+            - Name: NEW_RELIC_LICENSE_KEY_SECRET_ARN
+              Value: !Ref NewRelicLicenseKeySecret
+            - Name: DB_CREDENTIALS_SECRET_ARN
+              Value: !Ref DBCredentialsSecret
             - Name: NEW_RELIC_APP_NAME
               Value: NRDemo FastAPI Demo Service
             - Name: PORT
