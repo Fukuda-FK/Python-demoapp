@@ -294,8 +294,18 @@ Resources:
               Value: !Ref NewRelicLicenseKey
             - Name: NEW_RELIC_APP_NAME
               Value: NRDemo FastAPI Demo Service
-            - Name: NEW_RELIC_CONFIG_FILE
-              Value: /app/newrelic.ini
+            - Name: NEW_RELIC_LOG
+              Value: stdout
+            - Name: NEW_RELIC_LOG_LEVEL
+              Value: info
+            - Name: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
+              Value: 'true'
+            - Name: NEW_RELIC_APPLICATION_LOGGING_ENABLED
+              Value: 'true'
+            - Name: NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED
+              Value: 'true'
+            - Name: NEW_RELIC_APPLICATION_LOGGING_LOCAL_DECORATING_ENABLED
+              Value: 'true'
             - Name: DB_HOST
               Value: !GetAtt PaymentDatabase.Endpoint.Address
             - Name: DB_PORT
