@@ -283,9 +283,30 @@ Resources:
       ExecutionRoleArn: !GetAtt ECSTaskRole.Arn
       TaskRoleArn: !GetAtt ECSTaskRole.Arn
       ContainerDefinitions:
+        - Name: log_router
+          Image: public.ecr.aws/aws-observability/aws-for-fluent-bit:stable
+          Essential: true
+          FirelensConfiguration:
+            Type: fluentbit
+            Options:
+              enable-ecs-log-metadata: 'true'
+          Environment:
+            - Name: NR_LICENSE_KEY
+              Value: !Ref NewRelicLicenseKey
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: firelens
+          User: '0'
+          MemoryReservation: 50
         - Name: nrdemo-fastapi-demo-container
           Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}:latest
           Essential: true
+          DependsOn:
+            - ContainerName: log_router
+              Condition: START
           PortMappings:
             - ContainerPort: 3000
               Protocol: tcp
@@ -307,14 +328,17 @@ Resources:
             - Name: PORT
               Value: '3000'
           LogConfiguration:
-            LogDriver: awslogs
+            LogDriver: awsfirelens
             Options:
-              awslogs-group: !Ref LogGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: ecs
+              Name: newrelic
+              apiKey: !Ref NewRelicLicenseKey
+              endpoint: https://log-api.newrelic.com/log/v1
         - Name: newrelic-infra
           Image: newrelic/infrastructure:latest
           Essential: false
+          DependsOn:
+            - ContainerName: log_router
+              Condition: START
           Environment:
             - Name: NRIA_LICENSE_KEY
               Value: !Ref NewRelicLicenseKey
@@ -323,11 +347,11 @@ Resources:
             - Name: NRIA_VERBOSE
               Value: '1'
           LogConfiguration:
-            LogDriver: awslogs
+            LogDriver: awsfirelens
             Options:
-              awslogs-group: !Ref LogGroup
-              awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: newrelic
+              Name: newrelic
+              apiKey: !Ref NewRelicLicenseKey
+              endpoint: https://log-api.newrelic.com/log/v1
       Tags:
         - Key: Name
           Value: NRDemoECSTaskDefinition
