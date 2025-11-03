@@ -34,12 +34,41 @@ db_pool = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global db_pool
+    
+    # First, try to create the database if it doesn't exist
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = int(os.getenv("DB_PORT", "5432"))
+    db_name = os.getenv("DB_NAME", "payment_demo")
+    db_user = os.getenv("DB_USER", "dbadmin")
+    db_password = os.getenv("DB_PASSWORD", "DemoPassword123!")
+    
+    try:
+        # Connect to postgres database to create our database
+        conn = await asyncpg.connect(
+            host=db_host,
+            port=db_port,
+            database="postgres",
+            user=db_user,
+            password=db_password
+        )
+        # Check if database exists
+        exists = await conn.fetchval(
+            "SELECT 1 FROM pg_database WHERE datname = $1", db_name
+        )
+        if not exists:
+            await conn.execute(f'CREATE DATABASE {db_name}')
+            logger.info(f"Database {db_name} created successfully")
+        await conn.close()
+    except Exception as e:
+        logger.warning(f"Database creation check failed: {e}")
+    
+    # Now connect to the application database
     db_pool = await asyncpg.create_pool(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", "5432")),
-        database=os.getenv("DB_NAME", "payment_demo"),
-        user=os.getenv("DB_USER", "dbadmin"),
-        password=os.getenv("DB_PASSWORD", "DemoPassword123!"),
+        host=db_host,
+        port=db_port,
+        database=db_name,
+        user=db_user,
+        password=db_password,
         min_size=1,
         max_size=10
     )
