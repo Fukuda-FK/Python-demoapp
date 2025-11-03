@@ -294,6 +294,8 @@ Resources:
               Value: !Ref NewRelicLicenseKey
             - Name: NEW_RELIC_APP_NAME
               Value: NRDemo FastAPI Demo Service
+            - Name: NEW_RELIC_CONFIG_FILE
+              Value: /app/newrelic.ini
             - Name: DB_HOST
               Value: !GetAtt PaymentDatabase.Endpoint.Address
             - Name: DB_PORT

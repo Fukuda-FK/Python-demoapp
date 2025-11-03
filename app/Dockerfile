@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy New Relic configuration
+COPY ../config/newrelic.ini /app/newrelic.ini
+
 # Copy application code
 COPY . .
 
@@ -19,4 +22,5 @@ COPY . .
 EXPOSE 3000
 
 # Run the application with New Relic
+ENV NEW_RELIC_CONFIG_FILE=/app/newrelic.ini
 CMD ["newrelic-admin", "run-program", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000"]
