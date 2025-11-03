@@ -223,33 +223,6 @@ Resources:
           Value: NRDemoECRRepository
 
   # ============================================
-  # Secrets Manager
-  # ============================================
-  NewRelicLicenseKeySecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: nrdemo-newrelic-license-key
-      Description: New Relic License Key for FastAPI Demo
-      SecretString: !Sub |
-        {
-          "NEW_RELIC_LICENSE_KEY": "${NewRelicLicenseKey}"
-        }
-
-  DBCredentialsSecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: nrdemo-db-credentials
-      Description: Database credentials for FastAPI Demo
-      SecretString: !Sub |
-        {
-          "DB_HOST": "${PaymentDatabase.Endpoint.Address}",
-          "DB_PORT": "5432",
-          "DB_USER": "dbadmin",
-          "DB_PASSWORD": "${DBPassword}",
-          "DB_NAME": "payment_demo"
-        }
-
-  # ============================================
   # IAM Role
   # ============================================
   ECSTaskRole:
@@ -265,17 +238,6 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-      Policies:
-        - PolicyName: SecretsManagerAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource:
-                  - !Ref NewRelicLicenseKeySecret
-                  - !Ref DBCredentialsSecret
       Tags:
         - Key: Name
           Value: NRDemoECSTaskRole
@@ -328,12 +290,20 @@ Resources:
             - ContainerPort: 3000
               Protocol: tcp
           Environment:
-            - Name: NEW_RELIC_LICENSE_KEY_SECRET_ARN
-              Value: !Ref NewRelicLicenseKeySecret
-            - Name: DB_CREDENTIALS_SECRET_ARN
-              Value: !Ref DBCredentialsSecret
+            - Name: NEW_RELIC_LICENSE_KEY
+              Value: !Ref NewRelicLicenseKey
             - Name: NEW_RELIC_APP_NAME
               Value: NRDemo FastAPI Demo Service
+            - Name: DB_HOST
+              Value: !GetAtt PaymentDatabase.Endpoint.Address
+            - Name: DB_PORT
+              Value: '5432'
+            - Name: DB_USER
+              Value: dbadmin
+            - Name: DB_PASSWORD
+              Value: !Ref DBPassword
+            - Name: DB_NAME
+              Value: payment_demo
             - Name: PORT
               Value: '3000'
           LogConfiguration:
@@ -342,6 +312,22 @@ Resources:
               awslogs-group: !Ref LogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: ecs
+        - Name: newrelic-infra
+          Image: newrelic/infrastructure:latest
+          Essential: false
+          Environment:
+            - Name: NRIA_LICENSE_KEY
+              Value: !Ref NewRelicLicenseKey
+            - Name: NRIA_DISPLAY_NAME
+              Value: NRDemo-FastAPI-ECS
+            - Name: NRIA_VERBOSE
+              Value: '1'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: newrelic
       Tags:
         - Key: Name
           Value: NRDemoECSTaskDefinition
