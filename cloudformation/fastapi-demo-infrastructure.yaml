@@ -1,0 +1,369 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'FastAPI Demo System Infrastructure'
+
+Parameters:
+  NewRelicLicenseKey:
+    Type: String
+    NoEcho: true
+    Description: New Relic License Key
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for SSH access
+  AllowedIPAddress:
+    Type: String
+    Description: IP address allowed to access ALB and EC2 (CIDR notation)
+    Default: 0.0.0.0/0
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: RDS Database Password
+    MinLength: 8
+    MaxLength: 41
+
+Resources:
+  DemoVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: FastAPIDemoVPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: FastAPIDemoIGW
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref DemoVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      CidrBlock: 10.0.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      CidrBlock: 10.0.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet2
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ALB
+      VpcId: !Ref DemoVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref AllowedIPAddress
+      Tags:
+        - Key: Name
+          Value: ALBSecurityGroup
+
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Web Servers
+      VpcId: !Ref DemoVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedIPAddress
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: !Ref AllowedIPAddress
+      Tags:
+        - Key: Name
+          Value: WebServerSecurityGroup
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS
+      VpcId: !Ref DemoVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref WebServerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: DBSecurityGroup
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Name
+          Value: DemoDBSubnetGroup
+
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Parameter group for demo database
+      Family: postgres15
+      Parameters:
+        rds.force_ssl: '0'
+
+  PaymentDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: fastapi-demo-db
+      Engine: postgres
+      EngineVersion: '15.8'
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      StorageType: gp2
+      MasterUsername: dbadmin
+      MasterUserPassword: !Ref DBPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref DBParameterGroup
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 0
+      Tags:
+        - Key: Name
+          Value: FastAPIDemoDB
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: fastapi-demo-alb
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: FastAPIDemoALB
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: fastapi-demo-tg
+      Port: 3000
+      Protocol: HTTP
+      VpcId: !Ref DemoVPC
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Targets:
+        - Id: !Ref WebServerInstance
+          Port: 3000
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2Role
+
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: PaymentDatabase
+    Properties:
+      ImageId: !Sub '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
+      InstanceType: t3.small
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref WebServerSecurityGroup
+          SubnetId: !Ref PublicSubnet1
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+          echo "Starting user data script at $(date)"
+          
+          yum update -y
+          yum install -y python3 python3-pip git postgresql15
+          
+          curl -o /etc/yum.repos.d/newrelic-infra.repo https://download.newrelic.com/infrastructure_agent/linux/yum/amazonlinux/2/x86_64/newrelic-infra.repo
+          yum -q makecache -y --disablerepo='*' --enablerepo='newrelic-infra'
+          yum install newrelic-infra -y
+          echo "license_key: ${NewRelicLicenseKey}" > /etc/newrelic-infra.yml
+          systemctl enable newrelic-infra
+          systemctl start newrelic-infra
+          
+          cd /home/ec2-user
+          git clone https://github.com/Fukuda-FK/fastapi-demo-system.git
+          chown -R ec2-user:ec2-user /home/ec2-user/fastapi-demo-system
+          cd fastapi-demo-system/app
+          sudo -u ec2-user pip3 install --user -r requirements.txt
+          
+          DB_HOST="${PaymentDatabase.Endpoint.Address}"
+          until PGPASSWORD='${DBPassword}' psql -h $DB_HOST -U dbadmin -d postgres -c "SELECT 1;" >/dev/null 2>&1; do
+            echo "Waiting for database..."
+            sleep 10
+          done
+          
+          PGPASSWORD='${DBPassword}' psql -h $DB_HOST -U dbadmin -d postgres -c "CREATE DATABASE payment_demo;" 2>/dev/null || true
+          
+          cat > /home/ec2-user/fastapi-demo-system/app/.env << EOF
+          DB_HOST=${PaymentDatabase.Endpoint.Address}
+          DB_PORT=5432
+          DB_USER=dbadmin
+          DB_PASSWORD=${DBPassword}
+          DB_NAME=payment_demo
+          EOF
+          
+          cat > /home/ec2-user/fastapi-demo-system/config/newrelic.ini << EOF
+          [newrelic]
+          license_key = ${NewRelicLicenseKey}
+          app_name = FastAPI Demo Service
+          monitor_mode = true
+          log_level = info
+          distributed_tracing.enabled = true
+          application_logging.enabled = true
+          application_logging.forwarding.enabled = true
+          application_logging.metrics.enabled = true
+          application_logging.local_decorating.enabled = true
+          EOF
+          
+          cat > /etc/systemd/system/fastapi-demo.service << EOF
+          [Unit]
+          Description=FastAPI Demo Application
+          After=network.target postgresql.service
+          
+          [Service]
+          Type=simple
+          User=ec2-user
+          WorkingDirectory=/home/ec2-user/fastapi-demo-system/app
+          Environment=PATH=/home/ec2-user/.local/bin:/usr/local/bin:/usr/bin
+          Environment=NEW_RELIC_CONFIG_FILE=/home/ec2-user/fastapi-demo-system/config/newrelic.ini
+          ExecStart=/home/ec2-user/.local/bin/newrelic-admin run-program /usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 3000
+          Restart=always
+          RestartSec=10
+          
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          
+          systemctl daemon-reload
+          systemctl enable fastapi-demo
+          systemctl start fastapi-demo
+          
+          echo "User data script completed at $(date)"
+      Tags:
+        - Key: Name
+          Value: FastAPIDemoServer
+        - Key: Version
+          Value: "1.0"
+
+Outputs:
+  LoadBalancerDNS:
+    Description: DNS name of the load balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  DatabaseEndpoint:
+    Description: RDS Database Endpoint
+    Value: !GetAtt PaymentDatabase.Endpoint.Address
+  ApplicationURL:
+    Description: FastAPI Application URL
+    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}'

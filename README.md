@@ -1,77 +1,115 @@
-# FastAPI ECサイト デモシステム
+# FastAPI Demo System
 
-New Relic APM統合を含むFastAPIベースのECサイトデモアプリケーション
+New Relicモニタリングを統合したFastAPIベースの決済デモシステム
 
-## ディレクトリ構造
+## 機能
 
+- FastAPIによる高速なREST API
+- PostgreSQLデータベース統合
+- New Relicによる包括的な監視
+  - APM (Application Performance Monitoring)
+  - Distributed Tracing
+  - Logs in Context
+  - Browser Monitoring
+- 複数のエラーシナリオのシミュレーション
+- 管理者向けデバッグモード
+
+## セットアップ
+
+### 前提条件
+
+- Python 3.9+
+- PostgreSQL 15+
+- New Relicアカウント
+
+### ローカル開発環境
+
+1. リポジトリをクローン
+```bash
+git clone https://github.com/Fukuda-FK/fastapi-demo-system.git
+cd fastapi-demo-system
 ```
-fastapi-demo-system/
-├── app/                    # アプリケーションコード
-│   ├── main.py            # FastAPIアプリケーション本体
-│   ├── static/            # 静的ファイル（HTML/CSS/JS）
-│   ├── requirements.txt   # Python依存パッケージ
-│   └── test_rds.py        # RDS接続テスト
-├── config/                 # 設定ファイル
-│   ├── newrelic.ini       # New Relic APM設定
-│   └── .env.example       # 環境変数テンプレート
-├── deployment/             # デプロイメント設定
-│   ├── fastapi-demo.service      # systemdサービス設定
-│   └── fastapi-demo-logs.yml     # New Relic Logs設定
-└── docs/                   # ドキュメント
-    ├── NEW_RELIC_SETUP_GUIDE.md  # New Relic完全セットアップガイド
-    ├── DEMO_SCENARIOS.md          # デモシナリオ説明
-    └── その他ドキュメント
-```
 
-## クイックスタート
-
-### 1. 依存パッケージのインストール
-
+2. 依存関係をインストール
 ```bash
 cd app
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-### 2. 環境変数の設定
-
+3. 環境変数を設定
 ```bash
 cp config/.env.example .env
 # .envファイルを編集してデータベース接続情報を設定
 ```
 
-### 3. New Relic設定
-
+4. New Relic設定
 ```bash
-# config/newrelic.iniを編集
-# - license_key: New RelicライセンスキーをNew Relic UIから取得
-# - app_name: アプリケーション名を設定
+# config/newrelic.iniを編集してライセンスキーを設定
+license_key = YOUR_NEW_RELIC_LICENSE_KEY
 ```
 
-### 4. アプリケーション起動
-
+5. アプリケーションを起動
 ```bash
-# 開発環境
-cd app
-NEW_RELIC_CONFIG_FILE=../config/newrelic.ini newrelic-admin run-program python -m uvicorn main:app --host 0.0.0.0 --port 3000
-
-# 本番環境（systemd）
-sudo cp deployment/fastapi-demo.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl start fastapi-demo
-sudo systemctl enable fastapi-demo
+newrelic-admin run-program uvicorn main:app --host 0.0.0.0 --port 3000
 ```
 
-## 機能
+## AWS CloudFormationでのデプロイ
 
-- 決済処理デモ
-- New Relic APM統合
-- エラーシナリオデモ（コードエラー、DBエラー、リソースエラー等）
-- カスタム属性による詳細な監視
-- Logs in Context（ログとトレースの自動紐付け）
+CloudFormationテンプレートを使用して、完全なインフラストラクチャを自動構築できます。
 
-## ドキュメント
+```bash
+aws cloudformation create-stack \
+  --stack-name fastapi-demo \
+  --template-body file://cloudformation/fastapi-demo-infrastructure.yaml \
+  --parameters \
+    ParameterKey=NewRelicLicenseKey,ParameterValue=YOUR_LICENSE_KEY \
+    ParameterKey=KeyPairName,ParameterValue=YOUR_KEY_PAIR \
+    ParameterKey=DBPassword,ParameterValue=YOUR_DB_PASSWORD \
+    ParameterKey=AllowedIPAddress,ParameterValue=YOUR_IP/32 \
+  --capabilities CAPABILITY_IAM
+```
 
-詳細なセットアップ手順は [docs/NEW_RELIC_SETUP_GUIDE.md](docs/NEW_RELIC_SETUP_GUIDE.md) を参照してください。
+### インフラストラクチャ構成
+
+- VPC (10.0.0.0/16)
+- パブリックサブネット x2
+- プライベートサブネット x2
+- Application Load Balancer
+- EC2インスタンス (t3.small)
+- RDS PostgreSQL (db.t3.micro)
+- New Relic Infrastructure Agent
+
+## API エンドポイント
+
+### 決済API
+- `POST /api/payment` - 決済処理
+- `GET /api/transactions` - トランザクション一覧
+- `DELETE /api/transactions/clear` - トランザクション削除
+
+### 管理API
+- `POST /admin/failure` - エラーモード切替
+- `POST /admin/slow` - スローモード切替
+- `POST /admin/code-error` - コードエラーモード
+- `POST /admin/db-error` - DBエラーモード
+- `POST /admin/resource-error` - リソースエラーモード
+- `GET /admin/status` - システムステータス
+
+### ヘルスチェック
+- `GET /health` - ヘルスチェック
+- `GET /api/db-test` - データベース接続テスト
+
+## セキュリティに関する注意
+
+**重要**: 以下のファイルには機密情報を含めないでください
+
+- `.env` - 環境変数（.gitignoreに含まれています）
+- `config/newrelic.ini` - プレースホルダーのみをコミット
+
+本番環境では必ず以下を実施してください：
+- 強力なデータベースパスワードを使用
+- セキュリティグループで適切なIP制限を設定
+- SSL/TLS証明書を使用
+- New Relicライセンスキーを環境変数で管理
 
 ## ライセンス
 
