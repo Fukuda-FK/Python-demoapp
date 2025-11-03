@@ -21,13 +21,14 @@ New Relicモニタリングを統合したFastAPIベースの決済デモシス�
 - Python 3.9+
 - PostgreSQL 15+
 - New Relicアカウント
+- Docker (ECSデプロイの場合)
 
 ### ローカル開発環境
 
 1. リポジトリをクローン
 ```bash
-git clone https://github.com/Fukuda-FK/fastapi-demo-system.git
-cd fastapi-demo-system
+git clone https://github.com/Fukuda-FK/Python-demoapp.git
+cd Python-demoapp
 ```
 
 2. 依存関係をインストール
@@ -53,31 +54,55 @@ license_key = YOUR_NEW_RELIC_LICENSE_KEY
 newrelic-admin run-program uvicorn main:app --host 0.0.0.0 --port 3000
 ```
 
-## AWS CloudFormationでのデプロイ
+## AWS ECS Fargateでのデプロイ
 
-CloudFormationテンプレートを使用して、完全なインフラストラクチャを自動構築できます。
+### CloudFormationでインフラ構築
 
 ```bash
 aws cloudformation create-stack \
-  --stack-name fastapi-demo \
-  --template-body file://cloudformation/fastapi-demo-infrastructure.yaml \
+  --stack-name nrdemo-fastapi-ecs \
+  --template-body file://cloudformation/fastapi-demo-ecs-infrastructure.yaml \
   --parameters \
     ParameterKey=NewRelicLicenseKey,ParameterValue=YOUR_LICENSE_KEY \
-    ParameterKey=KeyPairName,ParameterValue=YOUR_KEY_PAIR \
     ParameterKey=DBPassword,ParameterValue=YOUR_DB_PASSWORD \
     ParameterKey=AllowedIPAddress,ParameterValue=YOUR_IP/32 \
-  --capabilities CAPABILITY_IAM
+  --capabilities CAPABILITY_NAMED_IAM
 ```
 
 ### インフラストラクチャ構成
 
 - VPC (10.0.0.0/16)
-- パブリックサブネット x2
-- プライベートサブネット x2
-- Application Load Balancer
-- EC2インスタンス (t3.small)
+- パブリックサブネット x2 (ALB配置)
+- プライベートサブネット x2 (ECS/RDS配置)
+- NAT Gateway x2 (各AZ)
+- Application Load Balancer (パブリック)
+- ECS Fargate (プライベート)
 - RDS PostgreSQL (db.t3.micro)
-- New Relic Infrastructure Agent
+- ECR Repository
+- Secrets Manager (認証情報管理)
+
+### GitHub Actionsでの自動デプロイ
+
+1. **GitHub環境設定 (pythondemo)**
+
+Environment Secrets:
+- `AWS_OIDC_ROLE_ARN`: AWS OIDC Role ARN
+
+Environment Variables:
+- `AWS_REGION`: ap-northeast-1
+- `ECR_REPOSITORY`: nrdemo-fastapi-demo-app
+- `ECS_CLUSTER`: nrdemo-fastapi-demo-cluster
+- `ECS_SERVICE`: nrdemo-fastapi-demo-service
+
+2. **デプロイ**
+
+masterブランチへのプッシュで自動デプロイ:
+```bash
+git push origin master
+```
+
+手動デプロイ:
+- GitHub ActionsのUIから「Deploy FastAPI Application」ワークフローを実行
 
 ## API エンドポイント
 
@@ -98,6 +123,32 @@ aws cloudformation create-stack \
 - `GET /health` - ヘルスチェック
 - `GET /api/db-test` - データベース接続テスト
 
+## Docker
+
+### ローカルでビルド・実行
+
+```bash
+cd app
+docker build -t fastapi-demo .
+docker run -p 3000:3000 --env-file .env fastapi-demo
+```
+
+### ECRへプッシュ
+
+```bash
+# ECRにログイン
+aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com
+
+# イメージをビルド
+docker build -t nrdemo-fastapi-demo-app ./app
+
+# タグ付け
+docker tag nrdemo-fastapi-demo-app:latest <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-demo-app:latest
+
+# プッシュ
+docker push <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-demo-app:latest
+```
+
 ## セキュリティに関する注意
 
 **重要**: 以下のファイルには機密情報を含めないでください
@@ -110,6 +161,7 @@ aws cloudformation create-stack \
 - セキュリティグループで適切なIP制限を設定
 - SSL/TLS証明書を使用
 - New Relicライセンスキーを環境変数で管理
+- AWS Secrets Managerで認証情報を管理
 
 ## ライセンス
 

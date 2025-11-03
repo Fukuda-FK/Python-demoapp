@@ -1,0 +1,81 @@
+name: Deploy FastAPI Application
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'pythondemo'
+        type: choice
+        options:
+          - pythondemo
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+  ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'pythondemo' }}
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./app
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+      
+      - name: Update ECS Service with new image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          aws ecs update-service \
+            --cluster "${ECS_CLUSTER}" \
+            --service "${ECS_SERVICE}" \
+            --force-new-deployment
+          
+          echo "Deployment initiated. ECS will pull the new image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          
+          echo "Waiting 30 seconds for deployment to start..."
+          sleep 30
+          
+          aws ecs describe-services \
+            --cluster "${ECS_CLUSTER}" \
+            --services "${ECS_SERVICE}" \
+            --query 'services[0].{Status:status,Running:runningCount,Pending:pendingCount,Desired:desiredCount,Events:events[0:3]}' \
+            --output json
+      
+      - name: Display Deployment Information
+        run: |
+          echo "🚀 Deployment completed successfully!"
+          echo "🐳 Image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+          echo "📊 ECS Cluster: ${{ env.ECS_CLUSTER }}"
+          echo "🔧 ECS Service: ${{ env.ECS_SERVICE }}"

@@ -188,7 +188,7 @@ Resources:
     Properties:
       DBInstanceIdentifier: nrdemo-fastapi-demo-db
       Engine: postgres
-      EngineVersion: '15.8'
+      EngineVersion: '15.10'
       DBInstanceClass: db.t3.micro
       AllocatedStorage: 20
       StorageType: gp2
