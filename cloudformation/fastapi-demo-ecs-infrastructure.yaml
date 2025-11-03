@@ -8,7 +8,7 @@ Parameters:
     Description: New Relic License Key
   AllowedIPAddress:
     Type: String
-    Description: IP address allowed to access ALB (CIDR notation)
+    Description: IP address allowed to access ECS (CIDR notation)
     Default: 0.0.0.0/0
   DBPassword:
     Type: String
@@ -85,8 +85,6 @@ Resources:
       Tags:
         - Key: Name
           Value: NRDemoPrivateSubnet2
-
-
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -252,36 +250,8 @@ Resources:
         }
 
   # ============================================
-  # IAM Roles
+  # IAM Role
   # ============================================
-  ECSTaskExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: nrdemo-ecs-task-execution-role
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-      Policies:
-        - PolicyName: SecretsManagerAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource:
-                  - !Ref NewRelicLicenseKeySecret
-                  - !Ref DBCredentialsSecret
-      Tags:
-        - Key: Name
-          Value: NRDemoECSTaskExecutionRole
-
   ECSTaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -293,6 +263,8 @@ Resources:
             Principal:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
       Policies:
         - PolicyName: SecretsManagerAccess
           PolicyDocument:
@@ -346,7 +318,7 @@ Resources:
         - FARGATE
       Cpu: '512'
       Memory: '1024'
-      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      ExecutionRoleArn: !GetAtt ECSTaskRole.Arn
       TaskRoleArn: !GetAtt ECSTaskRole.Arn
       ContainerDefinitions:
         - Name: nrdemo-fastapi-demo-container
