@@ -12,10 +12,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy New Relic configuration
-COPY ../config/newrelic.ini /app/newrelic.ini
-
-# Copy application code
+# Copy application code and New Relic configuration
 COPY . .
 
 # Expose port
