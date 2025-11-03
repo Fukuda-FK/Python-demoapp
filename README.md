@@ -37,7 +37,7 @@ New Relicモニタリングを統合したFastAPIベースの決済デモシス�
 
 ```bash
 aws cloudformation create-stack \
-  --stack-name nrdemo-fastapi-ecs \
+  --stack-name your-stack-name \
   --template-body file://cloudformation/fastapi-demo-ecs-infrastructure.yaml \
   --parameters \
     ParameterKey=NewRelicLicenseKey,ParameterValue=YOUR_LICENSE_KEY \
@@ -50,18 +50,18 @@ aws cloudformation create-stack \
 
 ```bash
 # ECRにログイン
-aws ecr get-login-password --region ap-northeast-1 | \
-  docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com
+aws ecr get-login-password --region YOUR_REGION | \
+  docker login --username AWS --password-stdin YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com
 
 # イメージをビルド
-docker build -t nrdemo-fastapi-demo-app ./app
+docker build -t your-app-name ./app
 
 # タグ付け
-docker tag nrdemo-fastapi-demo-app:latest \
-  <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-demo-app:latest
+docker tag your-app-name:latest \
+  YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/your-ecr-repo:latest
 
 # プッシュ
-docker push <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-demo-app:latest
+docker push YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/your-ecr-repo:latest
 ```
 
 ### 3. ECSサービスの起動
@@ -70,23 +70,23 @@ CloudFormationスタック作成後、ECSサービスのDesiredCountを1に更�
 
 ```bash
 aws ecs update-service \
-  --cluster nrdemo-fastapi-demo-cluster \
-  --service nrdemo-fastapi-demo-service \
+  --cluster your-ecs-cluster \
+  --service your-ecs-service \
   --desired-count 1
 ```
 
 ## GitHub Actionsでの自動デプロイ
 
-### GitHub環境設定 (pythondemo)
+### GitHub環境設定
 
 **Environment Secrets:**
 - `AWS_OIDC_ROLE_ARN`: AWS OIDC Role ARN
 
 **Environment Variables:**
-- `AWS_REGION`: ap-northeast-1
-- `ECR_REPOSITORY`: nrdemo-fastapi-demo-app
-- `ECS_CLUSTER`: nrdemo-fastapi-demo-cluster
-- `ECS_SERVICE`: nrdemo-fastapi-demo-service
+- `AWS_REGION`: Your AWS region
+- `ECR_REPOSITORY`: Your ECR repository name
+- `ECS_CLUSTER`: Your ECS cluster name
+- `ECS_SERVICE`: Your ECS service name
 
 ### デプロイ方法
 
@@ -123,8 +123,8 @@ git push origin master
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/Fukuda-FK/Python-demoapp.git
-cd Python-demoapp
+git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
+cd YOUR_REPO
 
 # 依存関係をインストール
 cd app
