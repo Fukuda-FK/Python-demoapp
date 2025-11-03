@@ -293,9 +293,9 @@ Resources:
           systemctl start newrelic-infra
           
           cd /home/ec2-user
-          git clone https://github.com/Fukuda-FK/fastapi-demo-system.git
-          chown -R ec2-user:ec2-user /home/ec2-user/fastapi-demo-system
-          cd fastapi-demo-system/app
+          git clone https://github.com/Fukuda-FK/Python-demoapp.git
+          chown -R ec2-user:ec2-user /home/ec2-user/Python-demoapp
+          cd Python-demoapp/app
           sudo -u ec2-user pip3 install --user -r requirements.txt
           
           DB_HOST="${PaymentDatabase.Endpoint.Address}"
@@ -306,7 +306,7 @@ Resources:
           
           PGPASSWORD='${DBPassword}' psql -h $DB_HOST -U dbadmin -d postgres -c "CREATE DATABASE payment_demo;" 2>/dev/null || true
           
-          cat > /home/ec2-user/fastapi-demo-system/app/.env << EOF
+          cat > /home/ec2-user/Python-demoapp/app/.env << EOF
           DB_HOST=${PaymentDatabase.Endpoint.Address}
           DB_PORT=5432
           DB_USER=dbadmin
@@ -314,7 +314,7 @@ Resources:
           DB_NAME=payment_demo
           EOF
           
-          cat > /home/ec2-user/fastapi-demo-system/config/newrelic.ini << EOF
+          cat > /home/ec2-user/Python-demoapp/config/newrelic.ini << EOF
           [newrelic]
           license_key = ${NewRelicLicenseKey}
           app_name = FastAPI Demo Service
@@ -335,9 +335,9 @@ Resources:
           [Service]
           Type=simple
           User=ec2-user
-          WorkingDirectory=/home/ec2-user/fastapi-demo-system/app
+          WorkingDirectory=/home/ec2-user/Python-demoapp/app
           Environment=PATH=/home/ec2-user/.local/bin:/usr/local/bin:/usr/bin
-          Environment=NEW_RELIC_CONFIG_FILE=/home/ec2-user/fastapi-demo-system/config/newrelic.ini
+          Environment=NEW_RELIC_CONFIG_FILE=/home/ec2-user/Python-demoapp/config/newrelic.ini
           ExecStart=/home/ec2-user/.local/bin/newrelic-admin run-program /usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 3000
           Restart=always
           RestartSec=10
