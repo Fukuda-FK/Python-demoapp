@@ -86,39 +86,22 @@ Resources:
         - Key: Name
           Value: NRDemoPrivateSubnet2
 
-  NatEIP1:
+  NatEIP:
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
       Tags:
         - Key: Name
-          Value: NRDemoNatEIP1
+          Value: NRDemoNatEIP
 
-  NatEIP2:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-      Tags:
-        - Key: Name
-          Value: NRDemoNatEIP2
-
-  NatGateway1:
+  NatGateway:
     Type: AWS::EC2::NatGateway
     Properties:
-      AllocationId: !GetAtt NatEIP1.AllocationId
+      AllocationId: !GetAtt NatEIP.AllocationId
       SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
-          Value: NRDemoNatGateway1
-
-  NatGateway2:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt NatEIP2.AllocationId
-      SubnetId: !Ref PublicSubnet2
-      Tags:
-        - Key: Name
-          Value: NRDemoNatGateway2
+          Value: NRDemoNatGateway
 
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
@@ -161,7 +144,7 @@ Resources:
     Properties:
       RouteTableId: !Ref PrivateRouteTable1
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway1
+      NatGatewayId: !Ref NatGateway
 
   PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -182,7 +165,7 @@ Resources:
     Properties:
       RouteTableId: !Ref PrivateRouteTable2
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway2
+      NatGatewayId: !Ref NatGateway
 
   PrivateSubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -193,20 +176,6 @@ Resources:
   # ============================================
   # Security Groups
   # ============================================
-  ALBSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Security group for ALB
-      VpcId: !Ref DemoVPC
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: !Ref AllowedIPAddress
-      Tags:
-        - Key: Name
-          Value: NRDemoALBSecurityGroup
-
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -216,7 +185,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 3000
           ToPort: 3000
-          SourceSecurityGroupId: !Ref ALBSecurityGroup
+          CidrIp: !Ref AllowedIPAddress
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -280,50 +249,6 @@ Resources:
       Tags:
         - Key: Name
           Value: NRDemoFastAPIDemoDB
-
-  # ============================================
-  # Application Load Balancer
-  # ============================================
-  ApplicationLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Name: nrdemo-fastapi-demo-alb
-      Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      SecurityGroups:
-        - !Ref ALBSecurityGroup
-      Tags:
-        - Key: Name
-          Value: NRDemoFastAPIDemoALB
-
-  ALBTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: nrdemo-fastapi-demo-tg
-      Port: 3000
-      Protocol: HTTP
-      VpcId: !Ref DemoVPC
-      TargetType: ip
-      HealthCheckEnabled: true
-      HealthCheckPath: /health
-      HealthCheckProtocol: HTTP
-      HealthCheckIntervalSeconds: 30
-      HealthCheckTimeoutSeconds: 5
-      HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 3
-      Matcher:
-        HttpCode: 200
-
-  ALBListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref ALBTargetGroup
-      LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: 80
-      Protocol: HTTP
 
   # ============================================
   # ECR Repository
@@ -520,9 +445,7 @@ Resources:
   # ============================================
   ECSService:
     Type: AWS::ECS::Service
-    DependsOn:
-      - ALBListener
-      - PaymentDatabase
+    DependsOn: PaymentDatabase
     Properties:
       ServiceName: nrdemo-fastapi-demo-service
       Cluster: !Ref ECSCluster
@@ -531,31 +454,20 @@ Resources:
       LaunchType: FARGATE
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: DISABLED
+          AssignPublicIp: ENABLED
           Subnets:
-            - !Ref PrivateSubnet1
-            - !Ref PrivateSubnet2
+            - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
           SecurityGroups:
             - !Ref ECSSecurityGroup
-      LoadBalancers:
-        - ContainerName: nrdemo-fastapi-demo-container
-          ContainerPort: 3000
-          TargetGroupArn: !Ref ALBTargetGroup
-      HealthCheckGracePeriodSeconds: 60
       Tags:
         - Key: Name
           Value: NRDemoECSService
 
 Outputs:
-  LoadBalancerDNS:
-    Description: DNS name of the load balancer
-    Value: !GetAtt ApplicationLoadBalancer.DNSName
   DatabaseEndpoint:
     Description: RDS Database Endpoint
     Value: !GetAtt PaymentDatabase.Endpoint.Address
-  ApplicationURL:
-    Description: FastAPI Application URL
-    Value: !Sub 'http://${ApplicationLoadBalancer.DNSName}'
   ECRRepositoryUri:
     Description: ECR Repository URI
     Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}
@@ -565,3 +477,6 @@ Outputs:
   ECSServiceName:
     Description: ECS Service Name
     Value: !GetAtt ECSService.Name
+  ECSTaskPublicIP:
+    Description: Access ECS tasks via their public IPs on port 3000
+    Value: Check ECS console for task public IPs
