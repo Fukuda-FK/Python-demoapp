@@ -82,8 +82,8 @@
         <div class="tabs">
             <button class="tab active" onclick="showTab('shop')">商品一覧</button>
             <button class="tab" onclick="showTab('cart')">カート</button>
-            <button class="tab" onclick="showTab('db')">💾 DB管理</button>
-            <button class="tab" onclick="showTab('admin')">🔧 管理画面</button>
+            <button class="tab" onclick="showTab('db')">DB管理</button>
+            <button class="tab" onclick="showTab('admin')"> 管理画面</button>
         </div>
         
         <div id="shop" class="tab-content active">
@@ -101,19 +101,19 @@
         </div>
         
         <div id="db" class="tab-content">
-            <h2>💾 データベース管理</h2>
+            <h2> データベース管理</h2>
             <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <h3>🔍 RDS接続テスト</h3>
+                <h3> RDS接続テスト</h3>
                 <button onclick="testRDSConnection()" class="btn" style="margin-top: 10px;">接続テスト実行</button>
                 <div id="rdsTestResult" style="margin-top: 15px;"></div>
             </div>
             <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <h3>📊 トランザクション履歴</h3>
+                <h3> トランザクション履歴</h3>
                 <button onclick="loadTransactions()" class="btn" style="margin-top: 10px;">履歴を読み込む</button>
                 <div id="transactionList" style="margin-top: 15px; max-height: 300px; overflow-y: auto;"></div>
             </div>
             <div style="background: #fff3cd; padding: 20px; border-radius: 8px;">
-                <h3>🗑️ データ管理</h3>
+                <h3> データ管理</h3>
                 <button onclick="clearTransactions()" class="btn" style="margin-top: 10px; background: #dc3545;">全トランザクション削除</button>
                 <div id="clearResult" style="margin-top: 15px;"></div>
             </div>
@@ -122,17 +122,17 @@
         <div id="admin" class="tab-content">
             <h2>🔧 システム管理画面</h2>
             <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <h3>📚 New Relicデモシナリオ</h3>
+                <h3> New Relicデモシナリオ</h3>
                 <p style="font-size: 13px; color: #856404; margin: 10px 0;">障害発生時の原因特定を迅速化</p>
                 <div style="display: grid; gap: 8px; margin-top: 15px;">
-                    <button onclick="enableCodeError()" class="btn" style="background: #e74c3c; font-size: 14px;">🐛 シナリオ1: コードエラー</button>
-                    <button onclick="enableDBError()" class="btn" style="background: #9b59b6; font-size: 14px;">💾 シナリオ2: DBエラー</button>
-                    <button onclick="enableResourceError()" class="btn" style="background: #f39c12; font-size: 14px;">📊 シナリオ3: リソース不足</button>
-                    <button onclick="disableAllErrors()" class="btn" style="background: #27ae60; font-size: 14px;">✅ 全て正常化</button>
+                    <button onclick="enableCodeError()" class="btn" style="background: #e74c3c; font-size: 14px;"> シナリオ1: コードエラー</button>
+                    <button onclick="enableDBError()" class="btn" style="background: #9b59b6; font-size: 14px;"> シナリオ2: DBエラー</button>
+                    <button onclick="enableResourceError()" class="btn" style="background: #f39c12; font-size: 14px;"> シナリオ3: リソース不足</button>
+                    <button onclick="disableAllErrors()" class="btn" style="background: #27ae60; font-size: 14px;"> 全て正常化</button>
                 </div>
             </div>
             <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <h3>🔍 New Relicで確認できること</h3>
+                <h3> New Relicで確認できること</h3>
                 <div style="font-size: 13px; line-height: 1.8;">
                     <p><strong>シナリオ1:</strong> APMでスタックトレースを確認、コードの何行目でエラーか即座に判明</p>
                     <p><strong>シナリオ2:</strong> DBクエリのパフォーマンスを確認、SQLエラーをLogs in Contextで紐付け</p>
@@ -253,7 +253,7 @@
                 body: JSON.stringify({ enable: true })
             });
             const data = await response.json();
-            alert(`🐛 ${data.message}\n\n次の決済でZeroDivisionErrorが発生します。\nNew Relic APMでスタックトレースを確認してください。`);
+            alert(` ${data.message}\n\n次の決済でZeroDivisionErrorが発生します。\nNew Relic APMでスタックトレースを確認してください。`);
             getSystemStatus();
         }
         
@@ -264,7 +264,7 @@
                 body: JSON.stringify({ enable: true })
             });
             const data = await response.json();
-            alert(`💾 ${data.message}\n\n次の決済でDBエラーが発生します。\nNew RelicでDBクエリとログを確認してください。`);
+            alert(` ${data.message}\n\n次の決済でDBエラーが発生します。\nNew RelicでDBクエリとログを確認してください。`);
             getSystemStatus();
         }
         
@@ -275,7 +275,7 @@
                 body: JSON.stringify({ enable: true })
             });
             const data = await response.json();
-            alert(`📊 ${data.message}\n\n次の決済でメモリ使用量が増加します。\nNew Relic Infrastructureでリソース使用率を確認してください。`);
+            alert(` ${data.message}\n\n次の決済でメモリ使用量が増加します。\nNew Relic Infrastructureでリソース使用率を確認してください。`);
             getSystemStatus();
         }
         
@@ -295,7 +295,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enable: false })
             });
-            alert('✅ 全てのエラーモードが無効化されました');
+            alert(' 全てのエラーモードが無効化されました');
             getSystemStatus();
         }
         
