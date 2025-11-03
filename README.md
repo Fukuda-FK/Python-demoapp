@@ -1,62 +1,39 @@
-# FastAPI Demo System
+# FastAPI Demo System with New Relic
 
 New Relicモニタリングを統合したFastAPIベースの決済デモシステム
 
 ## 機能
 
 - FastAPIによる高速なREST API
-- PostgreSQLデータベース統合
+- PostgreSQL RDSデータベース統合
 - New Relicによる包括的な監視
   - APM (Application Performance Monitoring)
+  - Infrastructure Monitoring (ECSサイドカー)
   - Distributed Tracing
   - Logs in Context
-  - Browser Monitoring
 - 複数のエラーシナリオのシミュレーション
 - 管理者向けデバッグモード
 
-## セットアップ
+## アーキテクチャ
 
-### 前提条件
+- **コンピュート**: AWS ECS Fargate (パブリックサブネット)
+- **データベース**: Amazon RDS PostgreSQL 15.10 (プライベートサブネット)
+- **コンテナレジストリ**: Amazon ECR
+- **ログ**: CloudWatch Logs
+- **監視**: New Relic APM + Infrastructure Agent (サイドカー)
+- **CI/CD**: GitHub Actions
 
-- Python 3.9+
-- PostgreSQL 15+
-- New Relicアカウント
-- Docker (ECSデプロイの場合)
+## 前提条件
 
-### ローカル開発環境
-
-1. リポジトリをクローン
-```bash
-git clone https://github.com/Fukuda-FK/Python-demoapp.git
-cd Python-demoapp
-```
-
-2. 依存関係をインストール
-```bash
-cd app
-pip install -r requirements.txt
-```
-
-3. 環境変数を設定
-```bash
-cp config/.env.example .env
-# .envファイルを編集してデータベース接続情報を設定
-```
-
-4. New Relic設定
-```bash
-# config/newrelic.iniを編集してライセンスキーを設定
-license_key = YOUR_NEW_RELIC_LICENSE_KEY
-```
-
-5. アプリケーションを起動
-```bash
-newrelic-admin run-program uvicorn main:app --host 0.0.0.0 --port 3000
-```
+- AWS アカウント
+- New Relic アカウント
+- GitHub アカウント
+- Docker (ローカル開発の場合)
+- Python 3.11+ (ローカル開発の場合)
 
 ## AWS ECS Fargateでのデプロイ
 
-### CloudFormationでインフラ構築
+### 1. CloudFormationでインフラ構築
 
 ```bash
 aws cloudformation create-stack \
@@ -64,37 +41,54 @@ aws cloudformation create-stack \
   --template-body file://cloudformation/fastapi-demo-ecs-infrastructure.yaml \
   --parameters \
     ParameterKey=NewRelicLicenseKey,ParameterValue=YOUR_LICENSE_KEY \
-    ParameterKey=DBPassword,ParameterValue=YOUR_DB_PASSWORD \
+    ParameterKey=DBPassword,ParameterValue=YOUR_SECURE_PASSWORD \
     ParameterKey=AllowedIPAddress,ParameterValue=YOUR_IP/32 \
   --capabilities CAPABILITY_NAMED_IAM
 ```
 
-### インフラストラクチャ構成
+### 2. 初回イメージのビルドとプッシュ
 
-- VPC (10.0.0.0/16)
-- パブリックサブネット x2 (ALB配置)
-- プライベートサブネット x2 (ECS/RDS配置)
-- NAT Gateway x2 (各AZ)
-- Application Load Balancer (パブリック)
-- ECS Fargate (プライベート)
-- RDS PostgreSQL (db.t3.micro)
-- ECR Repository
-- Secrets Manager (認証情報管理)
+```bash
+# ECRにログイン
+aws ecr get-login-password --region ap-northeast-1 | \
+  docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com
 
-### GitHub Actionsでの自動デプロイ
+# イメージをビルド
+docker build -t nrdemo-fastapi-demo-app ./app
 
-1. **GitHub環境設定 (pythondemo)**
+# タグ付け
+docker tag nrdemo-fastapi-demo-app:latest \
+  <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-demo-app:latest
 
-Environment Secrets:
+# プッシュ
+docker push <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-demo-app:latest
+```
+
+### 3. ECSサービスの起動
+
+CloudFormationスタック作成後、ECSサービスのDesiredCountを1に更新してタスクを起動します。
+
+```bash
+aws ecs update-service \
+  --cluster nrdemo-fastapi-demo-cluster \
+  --service nrdemo-fastapi-demo-service \
+  --desired-count 1
+```
+
+## GitHub Actionsでの自動デプロイ
+
+### GitHub環境設定 (pythondemo)
+
+**Environment Secrets:**
 - `AWS_OIDC_ROLE_ARN`: AWS OIDC Role ARN
 
-Environment Variables:
+**Environment Variables:**
 - `AWS_REGION`: ap-northeast-1
 - `ECR_REPOSITORY`: nrdemo-fastapi-demo-app
 - `ECS_CLUSTER`: nrdemo-fastapi-demo-cluster
 - `ECS_SERVICE`: nrdemo-fastapi-demo-service
 
-2. **デプロイ**
+### デプロイ方法
 
 masterブランチへのプッシュで自動デプロイ:
 ```bash
@@ -111,7 +105,7 @@ git push origin master
 - `GET /api/transactions` - トランザクション一覧
 - `DELETE /api/transactions/clear` - トランザクション削除
 
-### 管理API
+### 管理API (デモシナリオ制御)
 - `POST /admin/failure` - エラーモード切替
 - `POST /admin/slow` - スローモード切替
 - `POST /admin/code-error` - コードエラーモード
@@ -123,9 +117,36 @@ git push origin master
 - `GET /health` - ヘルスチェック
 - `GET /api/db-test` - データベース接続テスト
 
-## Docker
+## ローカル開発環境
 
-### ローカルでビルド・実行
+### セットアップ
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/Fukuda-FK/Python-demoapp.git
+cd Python-demoapp
+
+# 依存関係をインストール
+cd app
+pip install -r requirements.txt
+
+# 環境変数を設定
+cp config/.env.example .env
+# .envファイルを編集してデータベース接続情報を設定
+```
+
+### ローカル実行
+
+```bash
+# New Relic設定ファイルを編集
+# config/newrelic.iniのlicense_keyを設定
+
+# アプリケーションを起動
+cd app
+newrelic-admin run-program uvicorn main:app --host 0.0.0.0 --port 3000
+```
+
+### Dockerでローカル実行
 
 ```bash
 cd app
@@ -133,21 +154,42 @@ docker build -t fastapi-demo .
 docker run -p 3000:3000 --env-file .env fastapi-demo
 ```
 
-### ECRへプッシュ
+## インフラストラクチャ構成
 
-```bash
-# ECRにログイン
-aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com
+### ネットワーク
+- VPC (10.0.0.0/16)
+- パブリックサブネット x2 (ECS配置)
+- プライベートサブネット x2 (RDS配置)
+- インターネットゲートウェイ
 
-# イメージをビルド
-docker build -t nrdemo-fastapi-demo-app ./app
+### コンピュート
+- ECS Fargate (CPU: 512, Memory: 1024MB)
+- アプリケーションコンテナ + New Relic Infrastructureサイドカー
 
-# タグ付け
-docker tag nrdemo-fastapi-demo-app:latest <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-demo-app:latest
+### データベース
+- RDS PostgreSQL 15.10 (db.t3.micro)
+- 自動バックアップ無効 (デモ用途)
 
-# プッシュ
-docker push <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-demo-app:latest
-```
+### セキュリティ
+- ECSセキュリティグループ: ポート3000をAllowedIPAddressから許可
+- DBセキュリティグループ: ポート5432をECSからのみ許可
+
+## New Relic監視
+
+### APM
+- アプリケーションパフォーマンス監視
+- トランザクショントレース
+- エラー追跡
+- カスタム属性
+
+### Infrastructure
+- ECSサイドカーコンテナとして実行
+- コンテナメトリクス
+- リソース使用状況
+
+### Logs
+- CloudWatch Logsに集約
+- New Relic Logs in Context
 
 ## セキュリティに関する注意
 
@@ -156,13 +198,31 @@ docker push <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/nrdemo-fastapi-dem
 - `.env` - 環境変数（.gitignoreに含まれています）
 - `config/newrelic.ini` - プレースホルダーのみをコミット
 
-本番環境では必ず以下を実施してください：
+**本番環境では必ず以下を実施してください:**
 - 強力なデータベースパスワードを使用
 - セキュリティグループで適切なIP制限を設定
-- SSL/TLS証明書を使用
 - New Relicライセンスキーを環境変数で管理
-- AWS Secrets Managerで認証情報を管理
+- AWS Secrets Managerの使用を検討
+
+## トラブルシューティング
+
+### ECSタスクが起動しない
+- CloudWatch Logsでエラーを確認
+- セキュリティグループの設定を確認
+- ECRイメージが存在するか確認
+
+### データベース接続エラー
+- RDSセキュリティグループがECSからのアクセスを許可しているか確認
+- 環境変数のDB_HOSTが正しいか確認
+
+### New Relicにデータが表示されない
+- NEW_RELIC_LICENSE_KEYが正しく設定されているか確認
+- New Relic Infrastructureサイドカーのログを確認
 
 ## ライセンス
 
 MIT License
+
+## 貢献
+
+プルリクエストを歓迎します。大きな変更の場合は、まずissueを開いて変更内容を議論してください。
