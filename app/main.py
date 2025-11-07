@@ -17,9 +17,22 @@ import newrelic.agent
 # New Relic Logs in Context設定
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
+
+# New Relicログハンドラーを追加
+try:
+    from newrelic.agent import NewRelicContextFormatter
+    handler = logging.StreamHandler()
+    formatter = NewRelicContextFormatter()
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+except ImportError:
+    pass
 
 load_dotenv()
 

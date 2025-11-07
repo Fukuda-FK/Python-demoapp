@@ -294,6 +294,10 @@ Resources:
               Value: !Ref NewRelicLicenseKey
             - Name: NEW_RELIC_APP_NAME
               Value: NRDemo FastAPI Demo Service
+            - Name: NEW_RELIC_LOG
+              Value: stdout
+            - Name: NEW_RELIC_LOG_LEVEL
+              Value: info
             - Name: DB_HOST
               Value: !GetAtt PaymentDatabase.Endpoint.Address
             - Name: DB_PORT
@@ -322,6 +326,10 @@ Resources:
               Value: NRDemo-FastAPI-ECS
             - Name: NRIA_VERBOSE
               Value: '1'
+            - Name: NRIA_LOG_LEVEL
+              Value: info
+            - Name: NRIA_CUSTOM_ATTRIBUTES
+              Value: '{"environment":"demo","service":"fastapi"}'
           LogConfiguration:
             LogDriver: awslogs
             Options:
