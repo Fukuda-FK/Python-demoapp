@@ -1,43 +1,54 @@
-# New Relic Infrastructureエージェント経由でログを表示
+# ECS FargateでNew Relic Infrastructureエージェント経由のログ表示
 
 ## 概要
-アプリケーションコードを変更せず、New Relic Infrastructureエージェント経由でログを収集し、APMエラー画面に表示します。
+アプリケーションコードを変更せず、FireLens経由でログをNew Relicに送信し、APMエラー画面でアプリログとインフラログを統合表示します。
 
 ## 実施内容
 
-### 1. 共有ボリュームの追加
-アプリケーションコンテナとInfrastructureエージェントコンテナ間でログファイルを共有:
+### 1. FireLensコンテナの追加
+Fluent Bitをサイドカーコンテナとして追加:
 ```yaml
-Volumes:
-  - Name: logs
-    Host: {}
+- Name: log_router
+  Image: amazon/aws-for-fluent-bit:latest
+  FirelensConfiguration:
+    Type: fluentbit
+    Options:
+      enable-ecs-log-metadata: 'true'
 ```
 
-### 2. アプリケーションコンテナの設定
-- ログを`/var/log/app/application.log`にも出力
-- 標準出力とファイル出力を両方実施（teeコマンド使用）
+### 2. アプリケーションコンテナのログドライバー変更
+標準出力をFireLens経由でNew Relicに送信:
+```yaml
+LogConfiguration:
+  LogDriver: awsfirelens
+  Options:
+    Name: newrelic
+    apiKey: !Ref NewRelicLicenseKey
+    endpoint: https://log-api.newrelic.com/log/v1
+```
 
 ### 3. Infrastructureエージェントの設定
-- `NRIA_LOG_FORWARD=true`: ログ転送を有効化
-- `/var/log/app`をマウントしてログファイルを読み取り
-- ログに`logtype: infrastructure`属性を自動付与
+ECSタスクメトリクスを収集
 
 ## 動作の流れ
 
 ```
 Pythonアプリケーション
   ↓ stdout (標準出力)
-  ├→ CloudWatch Logs (awslogs driver)
-  └→ /var/log/app/application.log (teeコマンド)
-       ↓
-New Relic Infrastructure Agent
-  ↓ ログファイルを監視・収集
+  ↓ logger.info() / logger.error()
+  ↓ NR-LINKINGマーカー付き
+FireLens (Fluent Bit)
+  ↓ ログを受信
+  ↓ ECSメタデータを付与
+  ↓ (ecs_cluster, ecs_task_arn等)
+New Relic Logs API
+  ↓ 直接送信
   ↓ logtype=infrastructure属性を付与
 New Relic Logs
   ↓ trace.idで自動紐付け
 APM Errors画面
   ├─ アプリケーションログ (APM経由)
-  └─ インフラログ (Infrastructure経由) ← 新規追加
+  └─ インフラログ (FireLens経由) ← 新規追加
 ```
 
 ## デプロイ手順

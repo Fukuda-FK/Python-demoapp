@@ -289,10 +289,6 @@ Resources:
           PortMappings:
             - ContainerPort: 3000
               Protocol: tcp
-          MountPoints:
-            - SourceVolume: logs
-              ContainerPath: /var/log/app
-              ReadOnly: false
           Environment:
             - Name: NEW_RELIC_LICENSE_KEY
               Value: !Ref NewRelicLicenseKey
@@ -314,19 +310,25 @@ Resources:
               Value: payment_demo
             - Name: PORT
               Value: '3000'
-          Command:
-            - /bin/sh
-            - -c
-            - |
-              mkfifo /var/log/app/application.log
-              tee /var/log/app/application.log < /proc/1/fd/1 &
-              exec newrelic-admin run-program uvicorn main:app --host 0.0.0.0 --port 3000
+          LogConfiguration:
+            LogDriver: awsfirelens
+            Options:
+              Name: newrelic
+              apiKey: !Ref NewRelicLicenseKey
+              endpoint: https://log-api.newrelic.com/log/v1
+        - Name: log_router
+          Image: amazon/aws-for-fluent-bit:latest
+          Essential: true
+          FirelensConfiguration:
+            Type: fluentbit
+            Options:
+              enable-ecs-log-metadata: 'true'
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref LogGroup
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: ecs
+              awslogs-stream-prefix: firelens
         - Name: newrelic-infra
           Image: newrelic/infrastructure:latest
           Essential: false
@@ -339,23 +341,12 @@ Resources:
               Value: info
             - Name: NRIA_CUSTOM_ATTRIBUTES
               Value: '{"environment":"demo","service":"fastapi"}'
-            - Name: NRIA_LOG_FORWARD
-              Value: 'true'
-            - Name: NRIA_LOG_FORWARD_ONLY
-              Value: 'false'
-          MountPoints:
-            - SourceVolume: logs
-              ContainerPath: /var/log/app
-              ReadOnly: true
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref LogGroup
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: newrelic
-      Volumes:
-        - Name: logs
-          Host: {}
       Tags:
         - Key: Name
           Value: NRDemoECSTaskDefinition
