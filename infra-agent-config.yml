@@ -1,0 +1,12 @@
+integrations:
+  - name: nri-docker
+    env:
+      DOCKER_HOSTNAME: ${HOSTNAME}
+    interval: 15s
+
+log:
+  - name: application-logs
+    file: /var/log/containers/*.log
+    attributes:
+      logtype: infrastructure
+      service: fastapi-demo
