@@ -324,8 +324,6 @@ Resources:
               Value: !Ref NewRelicLicenseKey
             - Name: NRIA_DISPLAY_NAME
               Value: NRDemo-FastAPI-ECS
-            - Name: NRIA_VERBOSE
-              Value: '1'
             - Name: NRIA_LOG_LEVEL
               Value: info
             - Name: NRIA_CUSTOM_ATTRIBUTES

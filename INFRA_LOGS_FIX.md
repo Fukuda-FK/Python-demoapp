@@ -156,7 +156,7 @@ aws logs tail /ecs/nrdemo-fastapi-demo-app --follow --log-stream-name-prefix new
 
 **解決策**:
 1. `NewRelicContextFormatter`が正しく適用されているか確認
-2. `application_logging.local_decorating.enabled = true`が設定されているか確認
+2. `application_logging.local_decorating.enabled = false`が設定されているか確認（NewRelicContextFormatter使用時はfalseが必須）
 3. アプリケーションを再起動
 
 ## 期待される結果
