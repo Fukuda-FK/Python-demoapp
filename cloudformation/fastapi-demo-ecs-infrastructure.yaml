@@ -249,7 +249,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /ecs/nrdemo-fastapi-demo-app
-      RetentionInDays: 7
+      RetentionInDays: 1
 
   # ============================================
   # ECS Cluster

@@ -29,6 +29,13 @@ except ImportError:
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
+# インフラログ用ロガー
+infra_logger = logging.getLogger('infrastructure')
+infra_logger.setLevel(logging.INFO)
+infra_handler = logging.StreamHandler()
+infra_handler.setFormatter(formatter)
+infra_logger.addHandler(infra_handler)
+
 load_dotenv()
 
 failure_mode = False
@@ -81,13 +88,12 @@ async def lifespan(app: FastAPI):
         max_size=10
     )
     await init_database()
-    log_infra_event('application_startup', 'FastAPI application started successfully', service='fastapi-demo')
-    log_system_resources()
+    infra_logger.info('[INFRA] Application startup completed')
     print("========================================")
     print("  FastAPI ワークロード デモシステム")
     print("========================================")
     yield
-    log_infra_event('application_shutdown', 'FastAPI application shutting down', service='fastapi-demo')
+    infra_logger.info('[INFRA] Application shutdown initiated')
     await db_pool.close()
 
 app = FastAPI(lifespan=lifespan)
@@ -124,8 +130,7 @@ async def payment(req: PaymentRequest):
     # デモシナリオ1: コードエラー
     if code_error_mode:
         logger.error(f"[CODE ERROR] Division by zero in payment calculation - Amount: ¥{req.amount}, Store: {req.storeId}")
-        log_infra_event('application_error', f'Code error detected in payment processing', level='error', 
-                       error_type='ZeroDivisionError', amount=req.amount, store_id=req.storeId)
+        infra_logger.error(f'[INFRA] Application error detected: ZeroDivisionError, Amount: ¥{req.amount}, Store: {req.storeId}')
         newrelic.agent.add_custom_attributes([('error.scenario', 'code_error'), ('error.severity', 'critical')])
         try:
             result = req.amount / 0
@@ -141,8 +146,7 @@ async def payment(req: PaymentRequest):
     # デモシナリオ2: DBエラー
     if db_error_mode:
         logger.error(f"[DB ERROR] Transaction table access failed - Amount: ¥{req.amount}, Store: {req.storeId}")
-        log_infra_event('database_error', f'Database connection failed', level='error',
-                       error_type='DatabaseConnectionError', db_host=os.getenv('DB_HOST'), amount=req.amount)
+        infra_logger.error(f'[INFRA] Database connection failed: {os.getenv("DB_HOST")}, Amount: ¥{req.amount}')
         newrelic.agent.add_custom_attributes([('error.scenario', 'database_error'), ('error.severity', 'high'), ('error.table', 'transactions')])
         try:
             async with db_pool.acquire() as conn:
@@ -159,9 +163,7 @@ async def payment(req: PaymentRequest):
     # デモシナリオ3: リソース不足
     if resource_error_mode:
         logger.error(f"[RESOURCE] Memory allocation failed - Amount: ¥{req.amount}, Store: {req.storeId}")
-        log_infra_event('resource_exhaustion', f'Memory allocation failed', level='error',
-                       error_type='MemoryError', requested_mb=100, amount=req.amount)
-        log_system_resources()
+        infra_logger.error(f'[INFRA] Resource exhaustion: Memory allocation failed (100MB requested), Amount: ¥{req.amount}')
         newrelic.agent.add_custom_attributes([('error.scenario', 'resource_exhaustion'), ('error.severity', 'critical'), ('resource.type', 'memory'), ('resource.requested_mb', 100)])
         newrelic.agent.record_custom_event('ResourceWarning', {'type': 'MemoryExhaustion', 'amount': req.amount})
         try:
@@ -178,8 +180,7 @@ async def payment(req: PaymentRequest):
     
     if backend_only_failure_mode:
         logger.error(f"[BACKEND ONLY] Internal processing error - Amount: ¥{req.amount}, Store: {req.storeId}")
-        log_infra_event('backend_error', f'Internal processing error detected', level='error',
-                       error_type='BackendProcessingException', amount=req.amount, store_id=req.storeId)
+        infra_logger.error(f'[INFRA] Backend processing error: Internal error, Amount: ¥{req.amount}, Store: {req.storeId}')
         newrelic.agent.add_custom_attributes([('error.scenario', 'backend_only'), ('error.severity', 'high'), ('error.visibility', 'backend_only')])
         newrelic.agent.notice_error()
         raise HTTPException(status_code=500, detail={
@@ -196,8 +197,7 @@ async def payment(req: PaymentRequest):
                 await client.get("https://httpstat.us/524?sleep=3000")
         except Exception as e:
             logger.error(f"[FAILURE MODE] Payment gateway timeout - Amount: ¥{req.amount}, Store: {req.storeId}, Error: {str(e)}")
-            log_infra_event('external_service_timeout', f'Payment gateway timeout', level='error',
-                           error_type='TimeoutException', service='payment_gateway', timeout_seconds=3, amount=req.amount)
+            infra_logger.error(f'[INFRA] External service timeout: Payment gateway (3s), Amount: ¥{req.amount}')
             newrelic.agent.add_custom_attributes([
                 ('error.scenario', 'external_timeout'),
                 ('error.severity', 'high'),
