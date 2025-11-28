@@ -13,6 +13,16 @@ import logging
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import newrelic.agent
+import boto3
+from aws_xray_sdk.core import xray_recorder, patch_all
+from aws_xray_sdk.ext.flask.middleware import XRayMiddleware
+
+# X-Rayの設定
+xray_recorder.configure(
+    service='nrdemo-fastapi-demo-service',
+    context_missing='LOG_ERROR'
+)
+patch_all()  # boto3, httpx等を自動的にトレース
 
 # New Relic Logs in Context設定
 logger = logging.getLogger(__name__)
@@ -87,6 +97,11 @@ async def lifespan(app: FastAPI):
     await db_pool.close()
 
 app = FastAPI(lifespan=lifespan)
+
+# X-Rayミドルウェアを追加
+from aws_xray_sdk.ext.fastapi.middleware import XRayMiddleware as FastAPIXRayMiddleware
+app.add_middleware(FastAPIXRayMiddleware, recorder=xray_recorder)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class PaymentRequest(BaseModel):
@@ -316,6 +331,65 @@ async def admin_status():
         "transactionCount": transaction_count,
         "uptime": time.process_time()
     }
+
+@app.post("/api/bedrock-agent")
+async def invoke_bedrock_agent(request: dict):
+    """Bedrock Agentを呼び出してトレース情報を記録"""
+    agent_id = os.getenv("BEDROCK_AGENT_ID")
+    agent_alias_id = os.getenv("BEDROCK_AGENT_ALIAS_ID")
+    region = os.getenv("BEDROCK_REGION", "ap-northeast-1")
+    
+    if not agent_id or not agent_alias_id:
+        raise HTTPException(status_code=500, detail="Bedrock Agentが設定されていません")
+    
+    # X-Rayセグメントを作成
+    segment = xray_recorder.begin_segment('bedrock-agent-invocation')
+    
+    try:
+        bedrock_client = boto3.client('bedrock-agent-runtime', region_name=region)
+        
+        # Bedrock Agent呼び出し
+        response = bedrock_client.invoke_agent(
+            agentId=agent_id,
+            agentAliasId=agent_alias_id,
+            sessionId=f"session-{int(time.time())}",
+            inputText=request.get("prompt", "デフォルトプロンプト")
+        )
+        
+        # レスポンスを処理
+        result_text = ""
+        for event in response.get('completion', []):
+            if 'chunk' in event:
+                result_text += event['chunk'].get('bytes', b'').decode('utf-8')
+        
+        # X-Rayにカスタムメタデータを追加
+        segment.put_metadata('agent_id', agent_id)
+        segment.put_metadata('prompt', request.get("prompt", ""))
+        segment.put_metadata('response_length', len(result_text))
+        
+        # New Relicにも記録
+        newrelic.agent.add_custom_attributes([
+            ('bedrock.agent_id', agent_id),
+            ('bedrock.prompt_length', len(request.get("prompt", ""))),
+            ('bedrock.response_length', len(result_text))
+        ])
+        
+        logger.info(f"Bedrock Agent invoked: {agent_id}, Response length: {len(result_text)}")
+        
+        return {
+            "success": True,
+            "agentId": agent_id,
+            "response": result_text,
+            "responseLength": len(result_text)
+        }
+        
+    except Exception as e:
+        logger.error(f"Bedrock Agent error: {str(e)}")
+        segment.put_metadata('error', str(e))
+        newrelic.agent.notice_error()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        xray_recorder.end_segment()
 
 async def simulate_payment_gateway(amount: float):
     delay = random.uniform(0.1, 0.5)
