@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 import newrelic.agent
 import boto3
 from aws_xray_sdk.core import xray_recorder, patch_all
-from aws_xray_sdk.ext.flask.middleware import XRayMiddleware
 
 # X-Rayの設定
 xray_recorder.configure(
@@ -97,11 +96,6 @@ async def lifespan(app: FastAPI):
     await db_pool.close()
 
 app = FastAPI(lifespan=lifespan)
-
-# X-Rayミドルウェアを追加
-from aws_xray_sdk.ext.fastapi.middleware import XRayMiddleware as FastAPIXRayMiddleware
-app.add_middleware(FastAPIXRayMiddleware, recorder=xray_recorder)
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class PaymentRequest(BaseModel):
